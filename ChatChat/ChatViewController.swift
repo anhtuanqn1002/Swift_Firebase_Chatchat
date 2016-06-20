@@ -35,8 +35,15 @@ class ChatViewController: JSQMessagesViewController {
     let rootRef = FIRDatabase.database().reference()
     var messageRef: FIRDatabaseReference!
     
+    // ------------------------------------------
+    // Typing
     var userIsTypingRef: FIRDatabaseReference!
     private var localTyping = false
+    
+    // ------------------------------------------
+    // Querying for Typing Users
+    var usersTypingQuery: FIRDatabaseQuery!
+    
     var isTyping: Bool {
         get {
             return localTyping
@@ -53,6 +60,18 @@ class ChatViewController: JSQMessagesViewController {
         let typingIndicatorRef = rootRef.child("typingIndicator")
         userIsTypingRef = typingIndicatorRef.child(senderId)
         userIsTypingRef.onDisconnectRemoveValue()
+        
+        // querying for typing users
+        usersTypingQuery = typingIndicatorRef.queryOrderedByValue().queryEqualToValue(true)
+        
+        usersTypingQuery.observeEventType(.Value) { (data: FIRDataSnapshot!) in
+            if data.childrenCount == 1 && self.isTyping {
+                return
+            }
+            
+            self.showTypingIndicator = data.childrenCount > 0
+            self.scrollToBottomAnimated(true)
+        }
     }
     
     override func viewDidLoad() {
