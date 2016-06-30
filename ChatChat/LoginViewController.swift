@@ -23,20 +23,63 @@
 import UIKit
 import Firebase
 import FirebaseDatabase
+import GoogleSignIn
 
-class LoginViewController: UIViewController {
+class LoginViewController: UIViewController, GIDSignInDelegate, GIDSignInUIDelegate {
+    
+    @IBOutlet weak var signInGoogleButton: GIDSignInButton!
+    @IBOutlet weak var usernameTextfield: UITextField!
+    @IBOutlet weak var passwordTextfield: UITextField!
     
     var ref = FIRDatabaseReference()
-    
+    var globalUser = FIRUser!(nil)
     override func viewDidLoad() {
         super.viewDidLoad()
         ref = FIRDatabase.database().reference()
+        
+        // ------------------
+        // Sign-in with Google
+        GIDSignIn.sharedInstance().clientID = FIRApp.defaultApp()?.options.clientID
+        GIDSignIn.sharedInstance().delegate = self;
+        GIDSignIn.sharedInstance().uiDelegate = self;
     }
     
+    // -------------------------------------------------------
+    // GOOGLE SIGN-IN
+    func signIn(signIn: GIDSignIn!, didSignInForUser user: GIDGoogleUser!, withError error: NSError!) {
+        if (error == nil) {
+            let authencation = user.authentication
+            let credential = FIRGoogleAuthProvider.credentialWithIDToken(authencation.idToken, accessToken: authencation.accessToken)
+            
+            FIRAuth.auth()?.signInWithCredential(credential, completion: { (user, error) in
+                if let error = error {
+                    print(error.localizedDescription)
+                }
+                self.performSegueWithIdentifier("LoginToChat", sender: user)
+                
+            })
+        }
+    }
+    // -------------------------------------------------------
+    
     @IBAction func loginDidTouch(sender: AnyObject) {
-        FIRAuth.auth()?.signInAnonymouslyWithCompletion({ (user, error) in
+        
+        FIRAuth.auth()?.signInWithEmail(usernameTextfield.text!, password: passwordTextfield.text!, completion: { [weak self] (user, error) in
+            guard let strongSelf = self else { return }
             if let error = error {
                 print("Sign in failed: ", error.localizedDescription)
+            } else {
+                strongSelf.performSegueWithIdentifier("LoginToChat", sender: user)
+                strongSelf.globalUser = user
+                FIRAuth.auth()?.currentUser
+            }
+        })
+    }
+    
+    @IBAction func registerAction(sender: AnyObject) {
+        FIRAuth.auth()?.createUserWithEmail(usernameTextfield.text!, password: passwordTextfield.text!, completion: { (user, error) in
+            if let error = error {
+                print("Registration failed: ", error.localizedDescription)
             } else {
                 self.performSegueWithIdentifier("LoginToChat", sender: user)
             }
